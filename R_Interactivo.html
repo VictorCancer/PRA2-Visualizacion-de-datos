@@ -1,0 +1,135 @@
+<!-- ScatterChart generated in R 4.0.3 by googleVis 0.7.0 package -->
+<!-- Thu Jan 19 18:34:14 2023 -->
+
+
+<!-- jsHeader -->
+<script type="text/javascript">
+ 
+// jsData 
+function gvisDataScatterChartID2e5458ea4ab3 () {
+var data = new google.visualization.DataTable();
+var datajson =
+[
+ [
+1,
+36.82604603
+],
+[
+2,
+42.03656309
+],
+[
+3,
+46.28104571
+],
+[
+4,
+44.44034803
+],
+[
+5,
+42.30408028
+],
+[
+6,
+37.7058301
+],
+[
+7,
+33.15134163
+],
+[
+8,
+32.45634627
+],
+[
+9,
+31.6257072
+],
+[
+10,
+31.60447219
+],
+[
+11,
+32.00164041
+],
+[
+12,
+33.403884
+] 
+];
+data.addColumn('number','month_int');
+data.addColumn('number','median.load');
+data.addRows(datajson);
+return(data);
+}
+ 
+// jsDrawChart
+function drawChartScatterChartID2e5458ea4ab3() {
+var data = gvisDataScatterChartID2e5458ea4ab3();
+var options = {};
+options["allowHtml"] = true;
+options["title"] = "Interactive Scatter Plot";
+options["legend"] = "none";
+options["pointSize"] = 5;
+
+
+    var chart = new google.visualization.ScatterChart(
+    document.getElementById('ScatterChartID2e5458ea4ab3')
+    );
+    chart.draw(data,options);
+    
+
+}
+  
+ 
+// jsDisplayChart
+(function() {
+var pkgs = window.__gvisPackages = window.__gvisPackages || [];
+var callbacks = window.__gvisCallbacks = window.__gvisCallbacks || [];
+var chartid = "corechart";
+  
+// Manually see if chartid is in pkgs (not all browsers support Array.indexOf)
+var i, newPackage = true;
+for (i = 0; newPackage && i < pkgs.length; i++) {
+if (pkgs[i] === chartid)
+newPackage = false;
+}
+if (newPackage)
+  pkgs.push(chartid);
+  
+// Add the drawChart function to the global list of callbacks
+callbacks.push(drawChartScatterChartID2e5458ea4ab3);
+})();
+function displayChartScatterChartID2e5458ea4ab3() {
+  var pkgs = window.__gvisPackages = window.__gvisPackages || [];
+  var callbacks = window.__gvisCallbacks = window.__gvisCallbacks || [];
+  window.clearTimeout(window.__gvisLoad);
+  // The timeout is set to 100 because otherwise the container div we are
+  // targeting might not be part of the document yet
+  window.__gvisLoad = setTimeout(function() {
+  var pkgCount = pkgs.length;
+  google.load("visualization", "1", { packages:pkgs, callback: function() {
+  if (pkgCount != pkgs.length) {
+  // Race condition where another setTimeout call snuck in after us; if
+  // that call added a package, we must not shift its callback
+  return;
+}
+while (callbacks.length > 0)
+callbacks.shift()();
+} });
+}, 100);
+}
+ 
+// jsFooter
+</script>
+ 
+<!-- jsChart -->  
+<script type="text/javascript" src="https://www.google.com/jsapi?callback=displayChartScatterChartID2e5458ea4ab3"></script>
+ 
+<!-- divChart -->
+  
+<div id="ScatterChartID2e5458ea4ab3" 
+  style="width: 500; height: automatic;">
+</div>

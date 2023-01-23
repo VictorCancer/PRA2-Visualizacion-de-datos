@@ -1,66 +1,252 @@
 ---
-title: "Creating Interactive Visualizations in R"
-author: "Martin Schweinberger"
-date: "`r format(Sys.time(), '%Y-%m-%d')`"
+title: "**Practica 2**"
+author: Victor Cancer Castillo 
+date: "16 de Enero de 2023"
 output:
-  bookdown::html_document2
-bibliography: bibliography.bib
-link-citations: yes
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    includes:
+      in_header: logouoc.html
+    toc: yes
+    toc_float: true
+    toc_depth: 2
+    css: style.css
+includes:
+      after_body: test.html
 ---
 
-```{r uq1, echo=F, fig.cap="", message=FALSE, warning=FALSE, out.width='100%'}
-knitr::include_graphics("https://slcladal.github.io/images/uq1.jpg")
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Introduction{-}
 
-This tutorial shows how to generate interactive data visualizations in R. 
-
-```{r diff, echo=FALSE, out.width= "15%", out.extra='style="float:right; padding:10px"'}
-knitr::include_graphics("https://slcladal.github.io/images/gy_chili.jpg")
+```{r,message=FALSE,warning=FALSE,results='hide',quietly = TRUE,echo=FALSE,message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(car)
 ```
 
-This tutorial is aimed at beginners and intermediate users of R with the aim of showcasing how to generate interactive visualizations and how to process the resulting concordances using R. The aim is not to provide a fully-fledged analysis but rather to show and exemplify selected useful methods associated with interactive graphs 
 
+# Contexto
 
-<div class="warning" style='padding:0.1em; background-color:#f2f2f2; color:#51247a'>
-<span>
-<p style='margin-top:1em; text-align:center'>
-The entire R Notebook for the tutorial can be downloaded [**here**](https://slcladal.github.io/content/motion.Rmd).  If you want to render the R Notebook on your machine, i.e. knitting the document to html or a pdf, you need to make sure that you have R and RStudio installed and you also need to download the [**bibliography file**](https://slcladal.github.io/content/bibliography.bib) and store it in the same folder where you store the Rmd file. <br></p>
-<p style='margin-left:1em;'>
-</p></span>
-</div>
+En un contexto de crisis climática como el que estamos viviendo actualmente es totalmente necesario y util la ciencia de datos para poder evaluar la situación y buscar posibles soluciones al problema al que nos enfrentramos. 
 
-<br>
+Una de las herramientas que nos provee este area de conocimiento es la visualización de datos. Por lo tanto vamos a tratar de responder unas preguntas planteadas en una práctica anterior tan solo haciendo uso de visualizaciones, de las cuales se pueden extraer conclusiones rapidamente.
 
-Interactive visualization refers to a type of graphic visualization that allows the viewer to interact with the data or the information that is visualized. As such, interactive visualizations are more engaging or appealing compared with non-interactive visualization. However, interactive visualizations cannot be implemented in reports that are printed on paper but are restricted to digital formats (e.g. websites, presentations, etc.).
+Para llevar a cabo este informe hemos utilizado los datos de Kaggle que se pueden encontrar en el siguiente enlace: https://www.kaggle.com/datasets/nicholasjhana/energy-consumption-generation-prices-and-weather
 
-There are various options to generate interactive data visualizations in R. The most popular option is to create a `shiny` app [@beeley2013web]. This tutorial will not use `shiny` because `shiny` requires that the computation on which the computation that underlies the visualization is performed on a server. Rather, we will use `GooleViz` [@gesmann2011using] for generating interactive visualizations that use the computer  (or the browser) of the viewer to perform the computation. Thus, the interactive visualizations shown here do not require an external server.
+Este conjunto de datos contiene información del consumo, generación y precio de la electricidad y datos sobre el clima de España. 
 
-## Preparation and session set up{-}
+El dataset de consumo energético consta de unos 35.000 registros y 29 variables (se puede consultar en el anexo), las cuales son todas numéricas excepto la de la fecha. Algunas de las variables vemos que son siempre 0, por lo que no aportan nada (se descartarán). Como se puede observar podemos obtener los datos de muchas fuentes de energía diferentes, así como el precio de la energia para dicha fecha.
 
-This tutorial is based on R. If you have not installed R or are new to it, you will find an introduction to and more information how to use R [here](https://slcladal.github.io/intror.html). For this tutorials, we need to install certain *packages* from an R *library* so that the scripts shown below are executed without errors. Before turning to the code below, please install the packages by running the code below this paragraph. If you have already installed the packages mentioned below, then you can skip ahead and ignore this section. To install the necessary packages, simply run the following code - it may take some time (between 1 and 5 minutes to install all of the libraries so you do not need to worry if it takes some time).
+Por otro lado el dataset del clima tiene más registros (del orden de 178.000) ya que para cada hora tenemos datos para diferentes ciudades españolas (Barcelona, Bilbao, Madrid, Sevilla y Valencia). Consta de 17 variables, donde en este caso sí encontramos datos tanto cuantitativos como cualitativos (la descripción del clima del día o la ciudad a la que se hace referencia).
 
-```{r prep1, echo=T, eval = F, message=FALSE, warning=FALSE}
-# install packages
-install.packages("googleVis")
-install.packages("tidyverse")
-install.packages("DT")
-install.packages("flextable")
-install.packages("ggplot2")
-install.packages("gganimate")
-install.packages("gapminder")
-install.packages("maptools")
-install.packages("plotly")
-install.packages("leaflet")
-# install klippy for copy-to-clipboard button in code chunks
-install.packages("remotes")
-remotes::install_github("rlesur/klippy")
+# Carga y tratamiento de datos
+
+En este apartado cargaremos los datos que vamos a utilizar durante la práctica y se hará el tratamiento que sea necesario para poder visualizar mejor ciertos aspectos de nuestro conjunto de datos.
+
+## Conjunto de datos de consumo y generación energética
+
+Cargamos el conjunto de datos de consumo y generación energética:
+
+```{r}
+energy <- read.table(file="energy_dataset.csv",sep=',',dec='.',header=TRUE)
+#summary(energy)
 ```
 
-Now that we have installed the packages, we activate them as shown below.
+La variable de tiempo se toma como texto. Pasamos esta variable a tipo Date para un mejor tratamiento de los datos
 
-```{r prep2, message=FALSE, warning=FALSE, class.source='klippy'}
+```{r}
+energy$time <- as.POSIXct(energy$time,'%Y-%m-%d %H:%M:%S', tz="UTC")
+```
+
+Una variable que nos puede interesar utilizar es la de la energia total generada, por lo que vamos a sumar todas las variables númericas con la palabra *generation* y sin la palabra *ahead*
+
+```{r}
+energy$total_energy <- apply(energy[!(sapply(colnames(energy), function(x) '.ahead' %in% x)) & (sapply(colnames(energy), function(x) 'generation.' %in% x)) & sapply(energy,class) == "numeric"],MARGIN=1,sum)
+```
+
+
+## Conjunto de datos climáticos por ciudad
+
+Cargamos ahora datos relacionados con eventos climáticos en diferentes ciudades de España:
+
+```{r}
+weather <- read.table(file="weather_features.csv",sep=',',dec='.',stringsAsFactors = TRUE,header=TRUE)
+#summary(weather)
+weather$dt_iso <- as.POSIXct(weather$dt_iso,'%Y-%m-%d %H:%M:%S', tz="UTC")
+```
+
+De nuevo tenemos que cambiar el tipo de datos para la columna que contiene información acerca de la fecha para que no se tome como texto.
+
+# ¿Cambió el consumo electrico español durante esos 4 años? ¿Cuales fueron los picos más altos/bajos de consumo?
+
+Nos interesa saber si el consumo energético en España ha variado en los 4 años en los que estos datos hacen referencia, por lo que empezamos visualizando como ha variado a lo largo del tiempo sin hacer trato previo de los datos:
+
+
+```{r,echo=FALSE}
+ggplot(energy, aes(x=time, y=total.load.actual)) + ylab("Consumo energético (MW)") + xlab("Tiempo")+geom_line(color='blue')
+```
+
+Con los datos mostrandose de esta manera es dificil poder identificar un cambio en el consumo que hacían los españoles durante estos años. 
+
+Vamos a extraer la mediana del consumo de manera mensual para poder ver mejor si hay un patrón.
+
+Además añadiremos la regresión lineal de estos datos para poder ver más claramente el cambio durante los meses de 2015 a 2018
+
+
+```{r,echo=FALSE}
+monthly_load <- energy %>%
+  group_by(format(time, "%Y-%m")) %>%
+  summarise(median_energy = median(total.load.actual, na.rm=TRUE)) %>%
+   as.data.frame()
+
+colnames(monthly_load) <- c('year.month','median.load')
+
+monthly_load$year.month <- as.Date(paste(monthly_load$year.month,'-01',sep=''),  "%Y-%m-%d")
+
+ggplot(monthly_load, aes(x=year.month, y=median.load)) + ylab("Consumo energético medio mensual (MW)") + xlab("Tiempo")+geom_line(color='blue') +
+  stat_smooth(method = "lm", col = "red") + ggtitle("Consumo medio mensual a lo largo de 4 años y su tendencia lineal")
+```
+
+Se puede comprobar que hay un ligero aumento en el consumo energético durante estos años si nos fijamos en la regresión que se extrae de estos meses.
+
+Esto indica por lo tanto que puede haber una tendencia de crecimiento en el consumo de energía en el estado español, lo cual no concuerda con los objetivos que tienen acordados dentro del gobierno para la próxima decada.
+
+
+# ¿Son las fuentes energéticas renovables relevantes en el panorama español? 
+
+
+Uno de los factores clave a la hora de abordar la crisis climática es no solo disminuir nuestra generación (y gasto) energético, sino que además la energía generada debería provenir de fuentes renovables, como por ejemplo la energía solar o eolica.
+
+Por ello vamos a separar las diferentes energías en renovables y no renovables:
+
+
+```{r}
+energy$total_energy_renew <- apply(energy[
+ ( (sapply(colnames(energy), function(x) grepl('.solar',x))) | (sapply(colnames(energy), function(x) grepl('.wind',x))) |  (sapply(colnames(energy), function(x) grepl('.hydro',x)))   |  (sapply(colnames(energy), function(x) grepl('.marine',x)))  |  (sapply(colnames(energy), function(x) grepl('.geothermal',x)))) &
+  (sapply(colnames(energy), function(x) grepl('generation.',x))) &
+  sapply(energy,class) == "numeric"],MARGIN=1,sum)
+
+energy$total_energy_non_renew <- apply(energy[
+ !( (sapply(colnames(energy), function(x) grepl('.solar',x))) | (sapply(colnames(energy), function(x) grepl('.wind',x))) |  (sapply(colnames(energy), function(x) grepl('.hydro',x)))   |  (sapply(colnames(energy), function(x) grepl('.marine',x)))  |  (sapply(colnames(energy), function(x) grepl('.geothermal',x))))  &
+  (sapply(colnames(energy), function(x) grepl('generation.',x))) &
+  sapply(energy,class) == "numeric"],MARGIN=1,sum)
+
+energy$total_energy_generated <- apply(energy[
+  (sapply(colnames(energy), function(x) grepl('generation.',x))) &
+  sapply(energy,class) == "numeric"],MARGIN=1,sum)
+
+```
+
+Una manera de comparar ambas fuentes es a través de un Box Plot: 
+
+```{r,echo=FALSE}
+
+boxplot(energy$total_energy_non_renew,energy$total_energy_renew, col=c("brown","green"),ylab="Energía generada (MW)", names = c("Energía no renovable","Energía renovable"))
+
+```
+
+De aquí ya se puede intuir que la energía renovable es menor a la no renovable, pero para acabar de verlo claro calculamos los porcentajes de media y obtenemos lo siguiente:
+
+
+```{r,echo=FALSE}
+total_energy_renew_perc <- 100*sum(energy$total_energy_renew, na.rm=TRUE)/sum(energy$total_energy_generated, na.rm=TRUE)
+total_energy_non_renew_perc <- 100*sum(energy$total_energy_non_renew, na.rm=TRUE)/sum(energy$total_energy_generated, na.rm=TRUE)
+
+slices <- c(total_energy_renew_perc,total_energy_non_renew_perc)
+lbls <- c("Energía renovable","Energía no renovable")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) 
+lbls <- paste(lbls,"%",sep="") 
+pie(slices, labels = lbls, main="Proporción de energía renovable y no renovable",col=c("green","brown"))
+```
+
+Efectivamente vemos una porción menor, del 38%, para las renovables. 
+
+
+# ¿Es el factor climático importante en el consumo electrico y el peso de cada fuente? ¿Varía según si hace buen/mal tiempo? ¿Está el precio de la energía relacionado con que haya más/menos energía renovable ese día?
+
+En este apartado tendremos en cuenta ambos datasets, por lo que habra que unirlos. Para ello vamos a utilizar la variable de fecha ya que es común para ambos conjuntos de datos, por lo que podemos unirlos facilmente utilizando dichas columnas:
+
+```{r}
+merge_df <- merge(energy, weather, by.x = 'time',by.y = 'dt_iso')
+```
+
+Con nuestro conjunto de datos ya unido pasamos a buscar una posible diferencia en el consumo energético según el tiempo que está haciendo durante ese día. 
+
+Hay una variable que se llama **weather_id** que nos ayuda en esto, pero para poder entender qué significa tenemos que ir al origen de los datos que se utilizó en Kaggle. 
+
+La web de la que originalmente se extrajeron estos datos es www.openweather.org, que es una API que ofrece peticiones gratuitas de manera limitada. 
+Los valores de **weather_id** tienen su explicación se puede ver [aqui](https://openweathermap.org/weather-conditions), y es lo que hemos utilizado para crear el siguiente Box Plot:
+
+```{r,echo=FALSE}
+
+bp <- boxplot(100* merge_df$total_energy_renew / merge_df$total_energy_generated ~ substr(as.character(ifelse(merge_df$weather_id== 800 | merge_df$weather_id== 801,900,merge_df$weather_id )),1,1) , names = c('Tormenta','Llovizna','Lluvia','Nieve','Niebla','Claro','Nublado') ,ylab = 'Energía renovable generada (%)', xlab = 'Condiciones climáticas' , main = 'Relación entre condición climática y energía renovable generada',col = c("#477cff", "#668ae3", "#8498c7", "#a3a6ab", "#c2b38e", "#e0c172", "#ffcf56"), xaxt = "n" ) 
+tick <- seq_along(bp$names)
+axis(1, at = tick, labels = FALSE)
+text(tick, par("usr")[3] - 9, bp$names, srt = 45, xpd = TRUE)
+
+```
+
+
+No parece encontrarse una relación clara entre la generación de energía y el día que hizo en España ese día. Vamos por lo tanto a buscar una correlación entre otras variables como la temperatura, la humedad, el viento, la nieve, entre otras, con la generación eléctrica o el precio de ésta
+
+```{r,echo=FALSE}
+cor_cols = c("total_energy_generated","total_energy_renew","rain_1h","rain_3h","wind_speed","temp","pressure","humidity","snow_3h","clouds_all","price.actual")
+M = cor(merge_df[complete.cases(merge_df[,cor_cols]),cor_cols])
+colnames(M) <- c("Energia total", "Energia renovable", "Lluvia (1h)", "Lluvia (3h)", "Viento","Temperatura","Presion","Humedad","Nieve","Nubosidad","Precio")
+rownames(M) <- c("Energia total", "Energia renovable", "Lluvia (1h)", "Lluvia (3h)", "Viento","Temperatura","Presion","Humedad","Nieve","Nubosidad","Precio")
+corrplot(M, method = 'number',number.cex=0.75) # colorful number
+#corrplot.mixed(M, order = 'AOE')
+
+```
+
+De este cuadro de correlaciones se pueden extraer algunas conclusiones. 
+
+Hay correlaciones que no es necesario mencionar, como por ejemplo que contra más energía se genera, más energía renovable se genera (vemos una correlación positiva de 0.55). 
+
+Hay cosas más interesantes que podemos extraer de aquí, como la relación entre viento y energía renovable, la cual es mayor que la relación entre energía total y viento, indicando que crece más (porcentualmente) la energía renovable que la energía total. Evidentemente esto es debido a la generación de electricidad de fuentes eolicas.
+
+Sorprendentemente no vemos una relación tan marcada para la temperatura. Esto puede ser debido a que para temperaturas muy bajas y muy altas la generación electrica debe aumentar mucho, por lo que la relación entre ambas es cuadratica, lo cual hace que el indice lineal sea practicamente cero. 
+
+Acerca del precio tenemos buenas noticias, ya que la relación entre precio y energía renovable es negativa: ¡contra más energía renovable se genera menor será el precio de esta!
+
+
+# ¿Somos más ecologicos en ciertos momentos del año o es igual durante todo el año? ¿Cuales fueron los picos más altos/bajos de generación eléctrica renovable?
+
+Una de las preguntas que nos planteamos en la primera práctica es si eramos más ecologicos en ciertos momentos del año. 
+
+Para intentar responder a esta pregunta hemos calculado los porcentajes de energía de fuentes renovables a lo largo del año y los hemos representado a continuación
+
+```{r,echo=FALSE}
+monthly_grouped <- energy %>%
+  group_by(format(time, "%m")) %>%
+  summarise(median_energy = median(100* total_energy_renew / total_energy_generated, na.rm=TRUE)) %>%
+   as.data.frame()
+  
+colnames(monthly_grouped) <- c('month','median.load')
+
+plot(monthly_grouped$month, monthly_grouped$median.load, pch = 21,
+     bg = "red",   # Fill color
+     col = "blue", # Border color
+     cex = 3,      # Symbol size
+     lwd = 3,xlab='Mes',ylab = "Porcentaje de energía renovable (%)",ylim = c(25,50))
+title("Consumo de energias renovables")
+```
+
+
+Como se puede ver conforme empieza la primavera llegagamos a un pico de energías renovables (en concreto en Marzo llegamos casi al 50%). Mientras que el momento menos ecologico se encuentra en el mes de septiembre y octubre, donde llegamos a rozar el 30% de producción renovable.
+
+# Anexo: Visualizaciones interactivas
+
+
+Con el lenguaje R es dificil crear visualizaciones interactivas, pero en https://ladal.edu.au/motion.html he encontrado una serie de guías acerca de cómo generar plots con los que se pueda interactuar, los cuales necesitan una gran cantidad de librerias complementarias, como podemos ver a continuación
+
+```{r, warning=FALSE,results='hide',quietly = TRUE,message=FALSE}
 # set options
 options(stringsAsFactors = F)          # no automatic data transformation
 options("scipen" = 100, "digits" = 12) # suppress math annotation
@@ -81,323 +267,88 @@ library(leaflet)
 klippy::klippy()
 ```
 
-Once you have installed R and RStudio and also initiated the session by executing the code shown above, you are good to go.
+Un ejemplo de lo que podríamos generar es un grafico de puntos que se pueda consultar con el ratón del ordenador, el cual generamos a continuación:
 
-## Getting Started{-}
+```{r}
+ 
+monthly_grouped$month_int <- as.numeric(monthly_grouped$month)
 
-To get started with motion charts, we load the `googleVis` package for the visualizations, the `tidyverse` package for data processing, and we load a data set called `coocdata`. The `coocdata` contains information about how often adjectives were amplified by a degree adverb across time (see below). 
-
-```{r mc1, message=FALSE, warning=FALSE}
-# load data
-coocdata  <- base::readRDS(url("https://slcladal.github.io/data/coo.rda", "rb"))
-```
-
-```{r mc2, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-coocdata %>%
-  as.data.frame() %>%
-  head(15) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .95, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 15 rows of teh coocdata data.")  %>%
-  flextable::border_outer()
-```
-
-The `coocdata` is rather complex and requires some processing. First, we rename the columns to render their naming more meaningful. In this context we rename the *OBS* column *Frequency* and the *Amp* column *Amplifier*. As we are only interested if an adjective was amplified by *very*, we collapse all amplifiers that are not *very* in a bin category called *other*. We then calculate the frequency of the adjective within each time period and also the frequency with which each adjective is amplified by either *very* or *other* amplifiers. Then, we calculate the percentage with which each adjective is amplified by *very*.
-
-
-```{r mc3, message=FALSE, warning=FALSE}
-# process data
-coocs <- coocdata %>%
-  dplyr::select(Decade, Amp, Adjective, OBS) %>%
-  dplyr::rename(Frequency = OBS,
-         Amplifier = Amp) %>%
-  dplyr::mutate(Amplifier = ifelse(Amplifier == "very", "very", "other")) %>%
-  dplyr::group_by(Decade, Adjective, Amplifier) %>%
-  dplyr::summarise(Frequency = sum(Frequency)) %>%
-  dplyr::ungroup() %>%
-  tidyr::spread(Amplifier, Frequency) %>%
-  dplyr::group_by(Decade, Adjective) %>%
-  dplyr::mutate(Frequency_Adjective = sum(other + very),
-         Percent_very = round(very/(other+very)*100, 2)) %>%
-  dplyr::mutate(Percent_very = ifelse(is.na(Percent_very), 0, Percent_very),
-         Adjective = factor(Adjective))
-```
-
-```{r mc3b, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-coocs %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .95, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of teh coocs data.")  %>%
-  flextable::border_outer()
-```
-
-We now have a data set that we can use to generate interactive visualization.
-
-# Basic Interactive Graphs
-
-This section shows some very basic interactive graphs including scatter plots, line graphs, and bar plots.
-
-## Scatter Plots{-}
-
-Scatter plots show the relationship between two numeric variables if you have more than one observation per variable level (if the data is not grouped by another variable). This means that you can use scatter plots to display data when you have, e.g. more than one observation for each data in your data set. If you only have a single observation, you could also use a line graph (which we will turn to below).
-
-```{r mc5, message=FALSE, warning=FALSE}
-scdat <- coocs %>%
-  dplyr::group_by(Decade) %>%
-  dplyr::summarise(Precent_very = mean(Percent_very))
-# create scatter plot
-SC <- gvisScatterChart(scdat, 
+SC <- gvisScatterChart(monthly_grouped[,c('month_int','median.load')], 
                        options=list(
                          title="Interactive Scatter Plot",
                          legend="none",
                          pointSize=5))
-```
-
-If you want to display the visualization in a Notebook environment, you can use the `plot` function as shown below.
-
-```{r mc7, eval = F, message=FALSE, warning=FALSE}
 plot(SC)
+
 ```
 
-However, if you want to display the visualization on a website, you must use the `print` function rather than the `plot` function and specify that you want to print a `chart`.
+El problema es que el gráfico no queda insertado en el informe, por lo que lo añadimos como HTML al GitHub de esta entrega para ver lo que se genera (con el nombre *R_Interactivo.hmtl*).
 
-```{r mc9, results='asis'}
-print(SC, 'chart')
-```
+Para poder generar visualizaciones más interactivas podemos usar otro tipo de herramientas, como por ejemplo Tableau. 
 
-## Line Graphs{-}
-
-To create an interactive line chart, we use the `gvisLineChart` function as shown below.
-
-```{r mc11, echo=T, eval = T, message=FALSE, warning=FALSE}
-# create scatter plot
-SC <- gvisLineChart(scdat, 
-                    options=list(
-                      title="Interactive Scatter Plot",
-                      legend="none"))
-```
-
-If you want to display the visualization in a Notebook environment, you can use the `plot` function. For website, you must use the `print` function and specify that you want to print a `chart`.
-
-```{r mc15, results='asis'}
-print(SC, 'chart')
-```
-
-
+Generamos los datasets necesarios aquí para que la carga sea más fácil en la herramienta:
 
 ```{r}
-print(SC, 'chart')
-```
+energy_source = 'generation.biomass'
 
+temp <- energy[,c('time',energy_source)]
+temp$type <- energy_source
+colnames(temp) <- c('time','energy','energy_type')
 
-```{r}
-plot(SC)
-```
+union_df <- temp
+colnames(union_df) <- c('time','energy','energy_type')
 
-
-## Bar Plots{-}
-
-To create an interactive bar chart, we use the `gvisBarChart` function as shown below.
-
-```{r mc17, echo=T, eval = T, message=FALSE, warning=FALSE}
-# create scatter plot
-SC <- gvisBarChart(scdat, 
-                       options=list(
-                         title="Interactive Bar chart",
-                         legend="right",
-                         pointSize=10))
-```
-
-Normally, you would use the `plot` function to display the interactive chart but you must use the `print` function with the `chart` argument if you want to display the result on a  website.
-
-```{r mc21, results='asis'}
-print(SC, 'chart')
-```
-
-# Animations
-
-Animations or GIFs (Graphics Interchange Format) can be generated using the `gganimate` package written by  Thomas Lin Pedersen and David Robinson. The `gganimate` package allows to track changes over time while simultaneously displaying several variables in one visualization. As we will create animations using the `ggplot2` package, we also load that package from the library. In this case, we use the gapminder data set which comes with the `gapminder` package and which contains information about different countries, such as the average life expectancy, the population, or the gross domestic product (GDP), across time.
-
-```{r an1, message=F, warning=F}
-# set options
-theme_set(theme_bw())
-```
-
-```{r an1b, echo = F, message=FALSE, warning=FALSE}
-# inspect data
-gapminder %>%
-  as.data.frame() %>%
-  head(10) %>%
-  flextable::flextable() %>%
-  flextable::set_table_properties(width = .95, layout = "autofit") %>%
-  flextable::theme_zebra() %>%
-  flextable::fontsize(size = 12) %>%
-  flextable::fontsize(size = 12, part = "header") %>%
-  flextable::align_text_col(align = "center") %>%
-  flextable::set_caption(caption = "First 10 rows of the gapminder data.")  %>%
-  flextable::border_outer()
-```
-
-After loading the data, we create static plot so that we can check what the data looks like at one point in time.
-
-```{r an2, message=F, warning=F}
-p <- ggplot(
-  gapminder, 
-  aes(x = gdpPercap, y=lifeExp, size = pop, colour = country)
-  ) +
-  geom_point(show.legend = FALSE, alpha = 0.7) +
-  scale_color_viridis_d() +
-  scale_size(range = c(2, 12)) +
-  scale_x_log10() +
-  labs(x = "GDP per capita", y = "Life expectancy")
-p
-```
-
-We can then turn static plot into animation by defining the content of the `transition_time` object.
-
-```{r an3, eval = F, results = FALSE, message=F, warning=F}
-gif <- p + transition_time(year) +
-  labs(title = "Year: {frame_time}")
-# show gif
-gif
-```
-
-
-![](https://slcladal.github.io/images/gif.gif)
-
-
-Another way to generate animations is to use the `plotly` package as shown below. While I personally do not find the visualizations created by the `plot_ly` function as visually appealing, it has the advantage that it allows mouse-over effects.
-
-```{r an5, results='asis', message=F, warning=F}
-fig <- gapminder %>%
-  plot_ly(
-    x = ~gdpPercap, 
-    y = ~lifeExp, 
-    size = ~pop, 
-    color = ~continent, 
-    frame = ~year, 
-    text = ~country, 
-    hoverinfo = "text",
-    type = 'scatter',
-    mode = 'markers'
-  )
-fig <- fig %>% layout(
-    xaxis = list(
-      type = "log"
-    )
-  )
-
-fig
-```
-
-# Interactive Maps
-
-You can also use the `leaflet` package to create interactive maps. In this example, we display the beautiful city of Brisbane and the visualization allows you to zoom in and out. 
-
-
-```{r int1, message=F, warning=F}
-# generate visualization
-m <- leaflet() %>% 
-  setView(lng = 153.05, lat = -27.45, zoom = 12)
-# display map
-m %>% addTiles()
-```
-
-Another option is to display information about different countries. In this case, we can use the information provided in the `maptools` package which comes with a `SpatialPolygonsDataFrame` of the world and the population by country (in 2005). To make the visualization a bit more appealing, we will calculate the population density, add this variable to the data which underlies the visualization, and then display the information interactively. In this case, this means that you can use *mouse-over* or *hoover* effects so that you see the population density in each country if you put the cursor on that country (given the information is available for that country).
-
-We start by loading the required package from the library, adding population density to the data, and removing data points without meaningful information (e.g. we set values like Inf to NA).
-
-```{r int2, message=F, warning=F}
-# load data
-data(wrld_simpl)
-# calculate population density and add it to the data 
-wrld_simpl@data$PopulationDensity <- round(wrld_simpl@data$POP2005/wrld_simpl@data$AREA,2)
-wrld_simpl@data$PopulationDensity <- ifelse(wrld_simpl@data$PopulationDensity == "Inf", NA, wrld_simpl@data$PopulationDensity)
-wrld_simpl@data$PopulationDensity <- ifelse(wrld_simpl@data$PopulationDensity == "NaN", NA, wrld_simpl@data$PopulationDensity)
-# inspect data
-head(wrld_simpl@data)
-```
-
-We can now display the data.
-
-
-```{r int3, message=F, warning=F}
-# define colors
-qpal <- colorQuantile(rev(viridis::viridis(10)),
-                      wrld_simpl$PopulationDensity, n=10)
-# generate visualization
-l <- leaflet(wrld_simpl, options =
-               leafletOptions(attributionControl = FALSE, minzoom=1.5)) %>%
-  addPolygons(
-    label=~stringr::str_c(
-      NAME, ' ',
-      formatC(PopulationDensity, big.mark = ',', format='d')),
-    labelOptions= labelOptions(direction = 'auto'),
-    weight=1, color='#333333', opacity=1,
-    fillColor = ~qpal(PopulationDensity), fillOpacity = 1,
-    highlightOptions = highlightOptions(
-      color='#000000', weight = 2,
-      bringToFront = TRUE, sendToBack = TRUE)
-    ) %>%
-  addLegend(
-    "topright", pal = qpal, values = ~PopulationDensity,
-    title = htmltools::HTML("Population density <br> (2005)"),
-    opacity = 1 )
-# display visualization
-l
-```
-
-
-## Session Outro{-}
-
-When generating interactive maps, it is important that you reset the default graphics parameters which had to be adapted in the session set-up. Therefore, in a final step, we restore the default graphics options.
-
-```{r resetOptions}
-## Set options back to original options
-options(op)
-```
-
-# Citation & Session Info {-}
-
-Schweinberger, Martin. `r format(Sys.time(), '%Y')`. *Creating Interactive Visualization in R*. Brisbane: The University of Queensland. url: https://slcladal.github.io/motion.html (Version `r format(Sys.time(), '%Y.%m.%d')`)
-
-```
-@manual{schweinberger2021motion,
-  author = {Schweinberger, Martin},
-  title = {Creating motion charts using R},
-  note = {https://slcladal.github.io/motion.html},
-  year = {`r format(Sys.time(), '%Y')`},
-  organization = "The University of Queensland, Australia. School of Languages and Cultures},
-  address = {Brisbane},
-  edition = {`r format(Sys.time(), '%Y.%m.%d')`}
+for (energy_source in c('generation.biomass','generation.fossil.brown.coal.lignite','generation.fossil.coal.derived.gas','generation.fossil.gas','generation.fossil.hard.coal','generation.fossil.oil','generation.fossil.oil.shale','generation.fossil.peat','generation.geothermal','generation.hydro.pumped.storage.aggregated','generation.hydro.pumped.storage.consumption','generation.hydro.run.of.river.and.poundage','generation.hydro.water.reservoir','generation.marine','generation.nuclear','generation.other',  'generation.other.renewable','generation.solar','generation.waste','generation.wind.offshore',         'generation.wind.onshore')) {
+  temp <- energy[,c('time',energy_source)]
+  temp$type <- energy_source
+  colnames(temp) <- c('time','energy','energy_type')
+  
+  union_df <- rbind(as.data.frame(union_df),as.data.frame(temp))
 }
+
+```
+
+Al separar las fuentes en diferentes lineas se generan más de 700.000 registros, por lo que conviene agrupar de manera mensual para cada tipo de energía
+
+```{r}
+union_grouped <- union_df %>%
+  group_by(format(time, "%Y-%m"),energy_type) %>%
+  summarise(sum_energy = sum(energy, na.rm=TRUE)) %>%
+   as.data.frame()
+```
+
+Y lo exportamos a CSV:
+
+```{r}
+write.csv(union_grouped,'union_energy.csv')
 ```
 
 
-```{r fin}
-sessionInfo()
+Y podemos ver la visualización generada en https://public.tableau.com/app/profile/victor1897/viz/Energia_16740671786810/Hoja1?publish=yes
+
+De igual manera podemos crear una visualización interactiva que nos permita cambiar las condiciones climáticas para ver diferentes indicarores (o KPIs). Para ello generamos un dataset adecuado:
+
+
+```{r}
+merge_df$weather_id_ini <- substr(as.character(ifelse(merge_df$weather_id== 800 | merge_df$weather_id== 801,900,merge_df$weather_id )),1,1)
+merge_df$weather_desc <- case_when(
+  merge_df$weather_id_ini == '2' ~ "Tormenta",
+  merge_df$weather_id_ini == '3' ~ "Llovizna",
+  merge_df$weather_id_ini == '4' ~ "Lluvia",
+  merge_df$weather_id_ini == '5' ~ "Nieve",
+  merge_df$weather_id_ini == '6' ~ "Niebla",
+  merge_df$weather_id_ini == '7' ~ "Claro",
+  merge_df$weather_id_ini == '8' ~ "Nublado"
+)
+
+weather_energy <- merge_df %>%
+  group_by(merge_df$weather_desc) %>%
+  summarise(avg_energy = mean(total_energy_generated, na.rm=TRUE), avg_price = mean(price.actual,na.rm = TRUE), prc_renew = mean(100*total_energy_renew / total_energy_generated ,na.rm = TRUE) )%>%
+   as.data.frame()
+
+write.csv(weather_energy,'weather_energy.csv')
 ```
 
 
-***
-
-[Back to top](#introduction)
-
-[Back to HOME](https://slcladal.github.io/index.html)
-
-***
-
-# References {-}
+Podemos ver el resultado en https://public.tableau.com/app/profile/victor1897/viz/KPIsclimatologicos/Hoja1?publish=yes
 
